@@ -12,7 +12,7 @@ class Callback < Sinatra::Base
   enable :sessions
 
   before do
-    @endpoint =''
+    @endpoint ='http://localhost:8080/auth'
 
     @access_token_path = 'oauth/token'
     @auth_path='oauth/authorize'
@@ -20,15 +20,21 @@ class Callback < Sinatra::Base
     @client_id = 'my_app'
     @client_secret = 'passwd'
     @redirect_uri = 'http://localhost:4567/callback'
+    @redirect_implict = 'http://localhost:4567/implicit_call'
 
     #@granted_scopes=['read', 'write'].join('+')
     @granted_scopes='read'
 
-    content_type :json
+    #content_type :json
   end
 
   get '/callback' do
     get_token(params['code'])
+  end
+
+
+  get '/implicit_call' do
+    erb :page
   end
 
 
@@ -52,40 +58,35 @@ class Callback < Sinatra::Base
       req.headers['Authorization'] = enconde_auth
     end
 
-    response = JSON.parse(res.body)
-
-    session[:access_token] = response['access_token']
-    session[:token_type] = response['token_type']
-    session[:expires] = response['expires_in']
-    session[:scope] = response['scope']
-
+    parse_response(res)
     res.body
   end
 
+  def parse_response(res)
+    begin
+      response = JSON.parse(res.body)
 
-  get '/me' do
-    conn = Faraday.new(url: "#{@endpoint}") do |c|
-      c.response :json
-      c.adapter Faraday.default_adapter
-      c.use FaradayMiddleware::ParseJson, content_type: /\bjson$/
-      c.headers = {
-        'Authorization' => "OAuth #{session[:access_token]}",
-        'Content-Type' => 'application/json'
-      }
+      session[:access_token] = response['access_token']
+      session[:token_type] = response['token_type']
+      session[:expires] = response['expires_in']
+      session[:scope] = response['scope']
+    rescue Exception => e
+      puts e
+      puts res.body
     end
-
-    #TODO UPDATE
-    response = conn.get do |req|
-      req.url '/v2.1/me'
-      req.params['fields'] = ['id', 'name', 'picture', 'education'].join(',')
-    end
-
-    response.body.to_json
   end
 
   #Request for authorization
   get '/auth' do
     request_url = "#{@endpoint}/#{@auth_path}?response_type=code&client_id=#{@client_id}&redirect_uri=#{@redirect_uri}&scope=#{@granted_scopes}"
+    puts request_url
+
+    redirect request_url
+  end
+
+
+  get '/implicit' do
+    request_url = "#{@endpoint}/#{@auth_path}?response_type=token&client_id=#{@client_id}&redirect_uri=#{@redirect_implict}&scope=#{@granted_scopes}"
     puts request_url
 
     redirect request_url
