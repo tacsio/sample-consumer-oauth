@@ -12,7 +12,8 @@ class Callback < Sinatra::Base
   enable :sessions
 
   before do
-    @endpoint ='http://localhost:8080/auth'
+    @endpoint ='http://localhost:7070/heimdall'
+    #@endpoint ='http://localhost:8080/auth'
 
     @access_token_path = 'oauth/token'
     @auth_path='oauth/authorize'
@@ -38,6 +39,10 @@ class Callback < Sinatra::Base
   end
 
 
+  get '/hello' do
+    "Hello world"
+  end
+
   def get_token(code)
 
     client_app_credentials = "#{@client_id}:#{@client_secret}"
@@ -49,13 +54,20 @@ class Callback < Sinatra::Base
       c.adapter Faraday.default_adapter
     end
 
-    res = conn.get @access_token_path do |req|
-      req.params['code'] = code
-      req.params['client_id'] = @client_id
-      req.params['redirect_uri'] = @redirect_uri
-      req.params['grant_type'] = 'authorization_code'
+    #res = conn.get @access_token_path do |req|
+    #  req.params['code'] = code
+    #  req.params['client_id'] = @client_id
+    #  req.params['redirect_uri'] = @redirect_uri
+    #  req.params['grant_type'] = 'authorization_code'
 
+    #  req.headers['Authorization'] = enconde_auth
+    #end
+
+    res = conn.post do |req|
+      req.url @access_token_path
       req.headers['Authorization'] = enconde_auth
+
+      req.body = { :code => code, :client_id => @client_id, :redirect_uri => @redirect_uri, :grant_type => 'authorization_code' }
     end
 
     parse_response(res)
